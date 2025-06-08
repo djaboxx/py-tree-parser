@@ -5,6 +5,10 @@ setup(
     version="0.1.0",
     packages=find_packages(where="src"),
     package_dir={"": "src"},
+    package_data={
+        "embd": ["templates/*.j2"],
+    },
+    include_package_data=True,
     install_requires=[
         "gitpython>=3.1.42",
         "pydantic>=2.5.3",

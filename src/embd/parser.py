@@ -86,61 +86,8 @@ def extract_imports(node, code_bytes, filename: str, repo_name: str) -> List[mod
     traverse_imports(node)
     return imports
 
-def parse_file(file_path: str, repo: Repo) -> Tuple[List[models.CodeConstruct], List[models.Import]]:
-    """Parse a file and extract code constructs and imports"""
-    constructs = []
-    
-    # Get file content and repo name
-    with open(file_path, 'rb') as f:
-        content = f.read()
-    repo_name = os.path.basename(repo.working_dir)
-
-    # Get the last commit that modified this file
-    last_commit = next(repo.iter_commits(paths=file_path))
-    
-    # Setup parser based on file type
-    if file_path.endswith('.py'):
-        parser = get_parser('python')
-        language = get_language('python')
-    else:  # Markdown
-        parser = get_parser('markdown')
-        language = get_language('markdown')
-    
-    parser.set_language(language)
-    tree = parser.parse(content)
-    
-    # Extract imports first
-    imports = extract_imports(tree.root_node, content, file_path, repo_name) if file_path.endswith('.py') else []
-    
-    def extract_construct(node, code_bytes):
-        """Extract code construct from a node"""
-        if node.type in ['function_definition', 'class_definition']:
-            code_text = code_bytes[node.start_byte:node.end_byte].decode('utf-8')
-            description = get_code_description(code_text)
-            construct = models.CodeConstruct(
-                filename=file_path,
-                git_commit=last_commit.hexsha,
-                code=code_text,
-                construct_type=node.type,
-                description=description,
-                embedding=get_embedding(code_text, description),
-                line_start=node.start_point[0] + 1,
-                line_end=node.end_point[0] + 1
-            )
-            constructs.append(construct)
-            
-    def traverse_tree(node):
-        """Traverse the AST"""
-        if node.type in ['function_definition', 'class_definition']:
-            extract_construct(node, content)
-        for child in node.children:
-            traverse_tree(child)
-    
-    traverse_tree(tree.root_node)
-    return constructs, imports
-
 def get_code_description(code: str) -> str:
-    """Get a natural language description of code using Gemini"""
+    """Get a description of the code using Gemini"""
     try:
         # Create a prompt for Gemini to describe the code
         with open(
@@ -164,3 +111,66 @@ def get_code_description(code: str) -> str:
         print(f"Error generating description: {str(e)}")
     
     return "No description available"
+
+def get_node_name(node, code_bytes) -> str:
+    """Extract the name from a function or class definition node"""
+    # The identifier (name) is the first child after any decorators
+    for child in node.children:
+        if child.type == 'identifier':
+            return code_bytes[child.start_byte:child.end_byte].decode('utf-8')
+    return "unnamed"  # Fallback in case we can't find the name
+
+def parse_file(file_path: str, repo: Repo) -> Tuple[List[models.CodeConstruct], List[models.Import]]:
+    """Parse a file and extract code constructs and imports"""
+    constructs = []
+    
+    # Get file content and repo name
+    with open(file_path, 'rb') as f:
+        content = f.read()
+    repo_name = os.path.basename(repo.working_dir)
+
+    # Get the last commit that modified this file
+    last_commit = next(repo.iter_commits(paths=file_path))
+    
+    # Setup parser based on file type
+    if file_path.endswith('.py'):
+        parser = get_parser('python')
+        language = get_language('python')
+    else:  # Markdown
+        parser = get_parser('markdown')
+        language = get_language('markdown')
+    
+    parser.set_language(language)
+    tree = parser.parse(content)
+    
+    # Extract imports first (for Python files only)
+    imports = extract_imports(tree.root_node, content, file_path, repo_name) if file_path.endswith('.py') else []
+    
+    def extract_construct(node, code_bytes):
+        """Extract code construct from a node"""
+        if node.type in ['function_definition', 'class_definition']:
+            code_text = code_bytes[node.start_byte:node.end_byte].decode('utf-8')
+            construct_name = get_node_name(node, code_bytes)
+            description = get_code_description(code_text)
+            construct = models.CodeConstruct(
+                filename=file_path,
+                git_commit=last_commit.hexsha,
+                code=code_text,
+                name=construct_name,
+                construct_type=node.type,
+                description=description,
+                embedding=get_embedding(code_text, description),
+                line_start=node.start_point[0] + 1,
+                line_end=node.end_point[0] + 1
+            )
+            constructs.append(construct)
+            
+    def traverse_tree(node):
+        """Traverse the AST"""
+        if node.type in ['function_definition', 'class_definition']:
+            extract_construct(node, content)
+        for child in node.children:
+            traverse_tree(child)
+            
+    traverse_tree(tree.root_node)
+    return constructs, imports

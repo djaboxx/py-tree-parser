@@ -7,6 +7,7 @@ class CodeConstruct(BaseModel):
     git_commit: str = Field(description="Git commit hash of last change")
     code: str = Field(description="Extracted code from the construct")
     construct_type: str = Field(description="Type of code construct (e.g. function, class)")
+    name: str = Field(description="Name of the function or class")
     description: str = Field(description="AI-generated description of the code construct")
     embedding: List[float] = Field(description="Gemini embedding of the code and description")
     line_start: int = Field(description="Starting line number in source file")
