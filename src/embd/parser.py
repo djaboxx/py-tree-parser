@@ -18,12 +18,27 @@ ParseResult = Tuple[List[Tuple[models.CodeConstruct, List[float]]], List[models.
 # Setup language parsers
 PYTHON_LANGUAGE = get_language('python')
 HCL_LANGUAGE = get_language('hcl')  # For Terraform HCL files
+MARKDOWN_LANGUAGE = get_language('markdown')  # For Markdown files
 
 # Terraform construct types
 TERRAFORM_TYPES = {
     'module': 'terraform_module',
     'resource': 'terraform_resource',
     'data': 'terraform_data'
+}
+
+# Markdown construct types
+MARKDOWN_TYPES = {
+    'atx_heading': 'markdown_heading',
+    'setext_heading': 'markdown_heading', 
+    'paragraph': 'markdown_section',
+    'fenced_code_block': 'markdown_code_block',
+    'indented_code_block': 'markdown_code_block',
+    'list': 'markdown_list',
+    'blockquote': 'markdown_quote',
+    'thematic_break': 'markdown_hr',
+    'link_reference_definition': 'markdown_link_ref',
+    'html_block': 'markdown_html'
 }
 
 # Setup Gemini client
@@ -201,55 +216,58 @@ def generate_description(code: str, construct_type: str, name: str) -> str:
     Returns:
         Generated description string
     """
-    # Get template based on construct type
-    template = None
-    for lang_config in config.LANGUAGES.values():
-        if construct_type in lang_config['description_templates']:
-            template = lang_config['description_templates'][construct_type]
-            break
-    
-    if not template:
-        if construct_type.startswith('terraform_'):
-            template = "Terraform {} that {{{{purpose}}}}".format(
-                construct_type.replace('terraform_', '')
-            )
-        else:
-            template = "Code that {{purpose}}"  # Default template
-    
     try:
-        # Create prompt for Gemini
-        prompt = f"""Analyze this code and complete the template with a clear, specific purpose description:
+        # For Terraform code, use a more detailed prompt
+        if construct_type.startswith('terraform_'):
+            prompt = f"""Analyze this Terraform code and provide a detailed description:
+
+{code}
+
+Requirements:
+1. Start with: "Terraform {construct_type.replace('terraform_', '')} that"
+2. Explain what resources it creates/manages and their key configurations
+3. Mention any important variables, data sources, or conditions
+4. Include security-relevant details like IAM roles or network config
+5. Be specific about the infrastructure being created
+
+Example good descriptions:
+- "Terraform module that provisions a highly available RDS cluster with automated backups and encrypted storage using customer-managed KMS keys"
+- "Terraform resource that creates an EC2 instance in a private subnet with an IAM role for S3 access and custom user data script"
+
+Your description:"""
+        else:
+            # Use existing template-based approach for non-Terraform code
+            template = None
+            for lang_config in config.LANGUAGES.values():
+                if construct_type in lang_config['description_templates']:
+                    template = lang_config['description_templates'][construct_type]
+                    break
+            
+            if not template:
+                return f"{construct_type} named {name}"
+                
+            prompt = f"""Analyze this code and complete the template:
 
 {code}
 
 Template: {template}
-
-Requirements for the purpose:
-1. Describe what this code actually DOES, not just what type it is
-2. Be specific about resources, actions, and permissions
-3. Use active voice and concrete terms
-4. Focus on the primary function/outcome
-5. Keep it under 100 characters and avoid repetition
-
-Bad example: "creates an IAM role" (too vague)
-Good example: "allows EC2 instances to access S3 buckets in the same region"
 """
         
         response = client.models.generate_content(
             model=config.DESCRIBING_MODEL,
             contents=prompt,
             config=types.GenerateContentConfig(
-                max_output_tokens=100,  # Keep it concise
-                temperature=0.2  # More focused/deterministic responses
+                temperature=0.1  # Lower temperature for more consistent output
             )
         )
         
-        if response and hasattr(response, 'text'):
-            # Extract just the filled template
-            txt = response.text
-            if txt: txt = txt.strip()
-            filled_template = Template(template).render(purpose=txt)
-            return filled_template
+        if response:
+            if hasattr(response, 'text') and response.text:
+                description = response.text.strip()
+                # For non-Terraform code using templates
+                if not construct_type.startswith('terraform_') and template:
+                    description = Template(template).render(purpose=description)
+                return description
             
     except Exception as e:
         print(f"Error generating description: {str(e)}")
@@ -314,7 +332,7 @@ def parse_file(filename: str, repo_path: Optional[str] = None, repo_name: Option
                 constructs_with_embeddings.append((construct, embedding))
                 
         elif filename.endswith('.py'):
-            # Handle Python files (existing code)
+            # Handle Python files
             parser = get_parser('python')
             language = get_language('python')
             parser.set_language(language)
@@ -345,39 +363,29 @@ def parse_file(filename: str, repo_path: Optional[str] = None, repo_name: Option
                         line_end=node.end_point[0] + 1
                     )
                     constructs_with_embeddings.append((construct, construct.embedding))
-                
-                # For Terraform files, handle specific resource types
-                elif filename.endswith('.tf') or filename.endswith('.tf.json'):
-                    resource_type = TERRAFORM_TYPES.get(node.type)
-                    if resource_type:
-                        # For modules, resources, and data sources
-                        code_text = content_bytes[node.start_byte:node.end_byte].decode('utf-8')
-                        construct_name = get_node_name(node, content_bytes)
-                        description = f"Terraform {resource_type}: {construct_name}"
-                        embedding = get_embedding(code_text, description)
-                        
-                        construct = models.CodeConstruct(
-                            filename=filename,
-                            repository=repo_name or '',  # Set repository name
-                            git_commit=git_commit,
-                            code=code_text,
-                            name=construct_name,
-                            construct_type=resource_type,
-                            description=description,
-                            embedding=embedding,
-                            line_start=node.start_point[0] + 1,
-                            line_end=node.end_point[0] + 1
-                        )
-                        constructs_with_embeddings.append((construct, construct.embedding))
             
             # Visit each node in the tree
             def visit_node(node):
                 extract_construct(node, code_bytes)
                 for child in node.children:
                     visit_node(child)
-            
+                    
             visit_node(tree.root_node)
-        
+            
+        elif filename.endswith('.md'):
+            # Handle Markdown files
+            parser = get_parser('markdown')
+            parser.set_language(MARKDOWN_LANGUAGE)
+            tree = parser.parse(code_bytes)
+            
+            # Extract markdown constructs and process them
+            constructs_and_embeddings = extract_markdown_constructs(tree.root_node, code_bytes, filename)
+            for construct, embedding in constructs_and_embeddings:
+                # Fill in repository info
+                construct.git_commit = git_commit
+                construct.repository = repo_name or ''
+                constructs_with_embeddings.append((construct, embedding))
+                
         return constructs_with_embeddings, imports
         
     except Exception as e:
@@ -511,3 +519,78 @@ def extract_terraform_constructs(code_bytes: bytes, filename: str) -> List[Tuple
         except json.JSONDecodeError:
             print(f"Failed to parse {filename} as either HCL or JSON")
             return []
+
+def extract_markdown_constructs(node, code_bytes: bytes, filename: str) -> List[Tuple[models.CodeConstruct, List[float]]]:
+    """Extract markdown sections from a markdown file.
+    
+    Args:
+        node: The root AST node
+        code_bytes: Raw file contents
+        filename: Source filename
+        
+    Returns:
+        List of tuples containing (CodeConstruct, embedding)
+    """
+    constructs = []
+    current_section = None
+    
+    def visit_node(node) -> None:
+        nonlocal current_section
+        
+        # Get node text
+        node_text = code_bytes[node.start_byte:node.end_byte].decode('utf-8')
+        
+        # Handle different markdown elements
+        if node.type in MARKDOWN_TYPES:
+            construct_type = MARKDOWN_TYPES[node.type]
+            
+            # Extract name/title for the section
+            name = ''
+            if node.type in ['atx_heading', 'setext_heading']:
+                # For headings, use the heading text as name
+                name = node_text.strip('#').strip()
+            elif node.type in ['fenced_code_block', 'indented_code_block']:
+                # For code blocks, look for language info
+                first_line = node_text.split('\n')[0]
+                if '```' in first_line:
+                    name = first_line.strip('`').strip()
+                else:
+                    name = 'code'
+            else:
+                # For other elements, use first line or truncate
+                name = node_text.split('\n')[0][:50]
+            
+            # Create the construct
+            construct = models.CodeConstruct(
+                filename=filename,
+                repository='',  # Will be set by caller
+                git_commit='',  # Will be set by caller
+                code=node_text,
+                construct_type=construct_type,
+                name=name,
+                description='',  # Will be generated by caller
+                line_start=node.start_point[0] + 1,
+                line_end=node.end_point[0] + 1,
+                embedding=[]  # Will be generated by caller
+            )
+            
+            # Generate initial description 
+            if node.type in ['atx_heading', 'setext_heading']:
+                description = f"Markdown heading: {name}"
+            elif node.type in ['fenced_code_block', 'indented_code_block']:
+                lang = name if name != 'code' else 'unknown'
+                description = f"Code block in {lang}"
+            else:
+                description = f"Markdown {construct_type}"
+            
+            # Create embedding and store construct
+            embedding = get_embedding(node_text, description)
+            constructs.append((construct, embedding))
+        
+        # Recursively visit children
+        for child in node.children:
+            visit_node(child)
+    
+    # Start traversal from root
+    visit_node(node)
+    return constructs
