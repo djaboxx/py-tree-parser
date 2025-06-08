@@ -121,40 +121,42 @@ class CodeEmbedding(Base):
     
     @classmethod
     def create_indexes(cls, engine):
-        """Create necessary indexes including vector similarity index."""
-        # Enable pgvector extension first
+        """Create necessary indexes including vector similarity index if they don't exist."""
+        # Enable pgvector extension if not already enabled
         with engine.connect() as conn:
             conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
-            # Drop existing table if it exists
-            conn.execute(text("DROP TABLE IF EXISTS code_embeddings CASCADE;"))
-            conn.commit()
-
-        # Create tables via SQLAlchemy
-        Base.metadata.create_all(engine)
-        
-        # Create additional indexes
-        with engine.connect() as conn:
-            # Create indexes for efficient querying
-            conn.execute(text("""
-                -- Single-column indexes for common filters
-                CREATE INDEX IF NOT EXISTS idx_code_embeddings_filename 
-                ON code_embeddings(filename);
-
-                CREATE INDEX IF NOT EXISTS idx_code_embeddings_repository
-                ON code_embeddings(repository);
-
-                CREATE INDEX IF NOT EXISTS idx_code_embeddings_construct_type 
-                ON code_embeddings(construct_type);
+            
+            # Check if table exists first
+            result = conn.execute(text(
+                "SELECT EXISTS (SELECT FROM pg_tables WHERE tablename = 'code_embeddings');"
+            ))
+            table_exists = result.scalar()
+            
+            if not table_exists:
+                # Create tables via SQLAlchemy only if they don't exist
+                Base.metadata.create_all(engine)
                 
-                -- Composite index for repository+filename lookups
-                CREATE INDEX IF NOT EXISTS idx_code_embeddings_repo_file
-                ON code_embeddings(repository, filename);
-                
-                -- IVF index for fast similarity search (optional)
-                -- CREATE INDEX IF NOT EXISTS idx_code_embeddings_embedding 
-                -- ON code_embeddings USING ivfflat (embedding vector_cosine_ops)
-                -- WITH (lists = 100);
-            """))
+                # Create additional indexes
+                conn.execute(text("""
+                    -- Single-column indexes for common filters
+                    CREATE INDEX IF NOT EXISTS idx_code_embeddings_filename 
+                    ON code_embeddings(filename);
+
+                    CREATE INDEX IF NOT EXISTS idx_code_embeddings_repository
+                    ON code_embeddings(repository);
+
+                    CREATE INDEX IF NOT EXISTS idx_code_embeddings_construct_type 
+                    ON code_embeddings(construct_type);
+                    
+                    -- Composite index for repository+filename lookups
+                    CREATE INDEX IF NOT EXISTS idx_code_embeddings_repo_file
+                    ON code_embeddings(repository, filename);
+                    
+                    -- IVF index for fast similarity search (optional)
+                    -- CREATE INDEX IF NOT EXISTS idx_code_embeddings_embedding 
+                    -- ON code_embeddings USING ivfflat (embedding vector_cosine_ops)
+                    -- WITH (lists = 100);
+                """))
             conn.commit()
     
     @classmethod
@@ -244,8 +246,8 @@ class CodeEmbedding(Base):
         return [
             {
                 'id': result.id,
+                'repository': result.repository,  # Always include repository
                 'filename': result.filename,
-                'repository': result.repository,
                 'type': result.construct_type,
                 'name': result.name,
                 'line_start': result.line_start,
