@@ -17,10 +17,16 @@ setup(
         "pymongo>=4.6.1",
         "python-dotenv>=1.0.0",
         "google-generativeai>=0.3.2",
+        "psycopg2-binary>=2.9.9",
+        "sqlalchemy>=2.0.41",
+        "pgvector>=0.4.1",
+        "sqlalchemy-utils>=0.41.1",
     ],
     entry_points={
         "console_scripts": [
             "embd=embd.main:main",
+            "embd-search=embd.search_cli:main",
+            "embd-reinit-db=embd.reinit_db:main",
         ],
     },
     author="David Arnold",

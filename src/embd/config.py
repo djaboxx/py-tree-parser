@@ -5,15 +5,37 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-# MongoDB settings
-MONGO_URI = os.getenv("MONGO_URI", "mongodb://admin:password@localhost:27017")
-MONGO_DB = os.getenv("MONGO_DB", "code_parser")
-CONSTRUCTS_COLLECTION = os.getenv("CONSTRUCTS_COLLECTION", "code_constructs")
-IMPORTS_COLLECTION = os.getenv("IMPORTS_COLLECTION", "imports")
+# PostgreSQL settings
+POSTGRES_URI = os.getenv(
+    "POSTGRES_URI", 
+    "postgresql://postgres:postgres@localhost:5432/code_embed"
+)
 
 # Gemini settings
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-EMBEDDING_MODEL = "gemini-embedding-exp-03-07"  # Latest embedding model
-DESCRIBING_MODEL = "gemini-2.0-flash"
-# File patterns
-CODE_FILE_PATTERNS = ('.py', '.md')
+EMBEDDING_MODEL = "text-embedding-004"  # Latest embedding model
+DESCRIBING_MODEL = "gemini-2.0-flash"  # For descriptions
+EMBEDDING_DIMENSION = 768  # Dimension for model
+EMBEDDING_TOKEN_LIMIT = 8192  # Max tokens for embedding
+
+# File patterns and languages
+CODE_FILE_PATTERNS = ('.py', '.md', '.tf')
+
+# Language-specific settings
+LANGUAGES = {
+    'python': {
+        'extensions': ['.py'],
+        'description_templates': {
+            'function_definition': 'Python function that {{purpose}}',
+            'class_definition': 'Python class that {{purpose}}'
+        }
+    },
+    'terraform': {
+        'extensions': ['.tf', '.tfvars'],
+        'description_templates': {
+            'terraform_module': 'Terraform module that {{purpose}}',
+            'terraform_resource': 'Terraform resource that {{purpose}}',
+            'terraform_data': 'Terraform data source that {{purpose}}'
+        }
+    }
+}

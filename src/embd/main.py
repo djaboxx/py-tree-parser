@@ -1,29 +1,37 @@
+"""Main module for parsing and storing code constructs."""
 import os
+from typing import Optional
+import click
 from git import Repo, exc as git_exc
-from pymongo import MongoClient
 from . import parser
-from . import config
+from . import db
 
-def main():
-    """Main function to process files and store in MongoDB"""
-    # Setup MongoDB connection and ensure indexes
-    from . import db
+@click.command()
+@click.argument('repo_name', type=str, required=False)
+@click.option('--path', '-p', type=str, default=None, help='Repository path (defaults to current directory)')
+def main(repo_name: Optional[str] = None, path: Optional[str] = None):
+    """Process and store code constructs from a repository.
+    
+    Args:
+        repo_name: Name to use for the repository when storing constructs.
+                  Defaults to basename of repository path.
+        path: Path to repository (defaults to current directory)
+    """
+    # Initialize database tables and indexes
     db.init_indexes()
     
-    # Get MongoDB collections
-    client = MongoClient(config.MONGO_URI)
-    db = client[config.MONGO_DB]
-    constructs_collection = db[config.CONSTRUCTS_COLLECTION]
-    imports_collection = db[config.IMPORTS_COLLECTION]
-
-    # Get the repository path (current directory)
-    repo_path = os.getcwd()
+    # Get the repository path (current directory if not specified)
+    repo_path = os.path.abspath(path or os.getcwd())
+    
+    # Default repo_name to basename of repo_path if not specified
+    if not repo_name:
+        repo_name = os.path.basename(repo_path)
     
     try:
         repo = Repo(repo_path)
     except git_exc.InvalidGitRepositoryError:
-        print("\nError: Not a git repository")
-        print("\nPlease run 'embd' from within a git repository directory.")
+        print(f"\nError: Not a git repository: {repo_path}")
+        print("\nPlease specify a valid git repository path with --path or run from within a git repository.")
         print("You can initialize a new git repository with 'git init' if needed.\n")
         return 1
     
@@ -33,32 +41,16 @@ def main():
     # Process each file
     for file_path in files:
         print(f"Processing {file_path}...")
-        constructs, imports = parser.parse_file(file_path, repo)
+        constructs_with_embeddings, imports = parser.parse_file(file_path, repo_path, repo_name)
         
-        # Store code constructs in MongoDB
-        for construct in constructs:
-            constructs_collection.update_one(
-                {
-                    'filename': construct.filename,
-                    'line_start': construct.line_start,
-                    'line_end': construct.line_end
-                },
-                {'$set': construct.model_dump()},
-                upsert=True
-            )
-            print(f"Stored {construct.construct_type} from {construct.filename}")
-            
-        # Store imports in MongoDB
-        for imp in imports:
-            imports_collection.update_one(
-                {
-                    'filename': imp.filename,
-                    'module_name': imp.module_name
-                },
-                {'$set': imp.model_dump()},
-                upsert=True
-            )
-            print(f"Stored import of {imp.module_name} from {imp.filename}")
+        # Store code constructs and embeddings in PostgreSQL
+        db.store_constructs(constructs_with_embeddings)
+        
+        # Log stored constructs
+        for construct, _ in constructs_with_embeddings:
+            print(f"Stored {construct.construct_type} '{construct.name}' from {construct.filename}")
+    
+    return 0
 
 if __name__ == "__main__":
     main()

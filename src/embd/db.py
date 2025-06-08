@@ -1,34 +1,29 @@
-from pymongo import MongoClient, ASCENDING
-from . import config
+"""Database operations for storing and retrieving code constructs."""
+from typing import List, Tuple
+from .database import Session, engine
+from . import models
 
 def init_indexes():
-    """Initialize MongoDB indexes for optimal performance"""
-    client = MongoClient(config.MONGO_URI)
-    db = client[config.MONGO_DB]
-    
-    # Indexes for code_constructs collection
-    constructs = db[config.CONSTRUCTS_COLLECTION]
-    constructs.create_index([
-        ("filename", ASCENDING),
-        ("line_start", ASCENDING),
-        ("line_end", ASCENDING)
-    ], unique=True)
-    constructs.create_index([("construct_type", ASCENDING)])
-    constructs.create_index([("git_commit", ASCENDING)])
-    constructs.create_index([("created_at", ASCENDING)])
-    constructs.create_index([("updated_at", ASCENDING)])
-    
-    # Indexes for imports collection
-    imports = db[config.IMPORTS_COLLECTION]
-    imports.create_index([
-        ("filename", ASCENDING),
-        ("module_name", ASCENDING)
-    ], unique=True)
-    imports.create_index([("repository", ASCENDING)])
-    imports.create_index([("module_name", ASCENDING)])
-    imports.create_index([("import_type", ASCENDING)])
-    imports.create_index([("created_at", ASCENDING)])
-    imports.create_index([("updated_at", ASCENDING)])
+    """Initialize database tables and indexes."""
+    # Create tables and vector similarity indexes
+    models.CodeEmbedding.create_indexes(engine)
+    print("PostgreSQL tables and indexes created successfully")
 
-if __name__ == "__main__":
-    init_indexes()
+def store_constructs(constructs_and_embeddings: List[Tuple[models.CodeConstruct, List[float]]]) -> None:
+    """Store code constructs and their embeddings in PostgreSQL."""
+    with Session() as session:
+        try:
+            # Store each construct with its embedding
+            for construct, embedding in constructs_and_embeddings:
+                # Store in PostgreSQL
+                models.CodeEmbedding.store_embedding(
+                    session=session,
+                    construct=construct,
+                    embedding=embedding
+                )
+            # Commit all changes
+            session.commit()
+        except Exception as e:
+            session.rollback()
+            print(f"Error storing constructs: {str(e)}")
+            raise
