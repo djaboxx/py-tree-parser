@@ -18,8 +18,12 @@ DESCRIBING_MODEL = "gemini-2.0-flash"  # For descriptions
 EMBEDDING_DIMENSION = 768  # Dimension for model
 EMBEDDING_TOKEN_LIMIT = 8192  # Max tokens for embedding
 
+# Similarity thresholds
+DEFAULT_MIN_SIMILARITY = 0.7  # Default minimum similarity score for matches
+DEFAULT_MAX_RESULTS = 10     # Default maximum number of results
+
 # File patterns and languages
-CODE_FILE_PATTERNS = ('.py', '.md', '.tf')
+CODE_FILE_PATTERNS = ('.py', '.md', '.tf', '.tfvars')
 
 # Language-specific settings
 LANGUAGES = {
