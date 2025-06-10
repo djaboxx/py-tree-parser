@@ -21,12 +21,16 @@ setup(
         "sqlalchemy>=2.0.41",
         "pgvector>=0.4.1",
         "sqlalchemy-utils>=0.41.1",
+        "beautifulsoup4>=4.12.0",
+        "requests>=2.31.0",
+        "markdown>=3.4.0",
     ],
     entry_points={
         "console_scripts": [
             "embd=embd.main:main",
             "embd-search=embd.search_cli:main",
             "embd-reinit-db=embd.reinit_db:main",
+            "embd-web=embd.fetch_web:main",
         ],
     },
     author="David Arnold",

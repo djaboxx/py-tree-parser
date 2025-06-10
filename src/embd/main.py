@@ -9,13 +9,15 @@ from . import db
 @click.command()
 @click.argument('repo_name', type=str, required=False)
 @click.option('--path', '-p', type=str, default=None, help='Repository path (defaults to current directory)')
-def main(repo_name: Optional[str] = None, path: Optional[str] = None):
+@click.option('--whole-file', '-w', is_flag=True, help='Embed complete files instead of individual constructs')
+def main(repo_name: Optional[str] = None, path: Optional[str] = None, whole_file: bool = False):
     """Process and store code constructs from a repository.
     
     Args:
         repo_name: Name to use for the repository when storing constructs.
                   Defaults to basename of repository path.
         path: Path to repository (defaults to current directory)
+        whole_file: If True, embed complete files instead of individual constructs
     """
     # Initialize database tables and indexes
     db.init_indexes()
@@ -41,14 +43,26 @@ def main(repo_name: Optional[str] = None, path: Optional[str] = None):
     # Process each file
     for file_path in files:
         print(f"Processing {file_path}...")
-        constructs_with_embeddings, imports = parser.parse_file(file_path, repo_path, repo_name)
+        
+        if whole_file:
+            # Embed the complete file
+            constructs_with_embeddings, imports = parser.parse_file_as_whole(file_path, repo_path, repo_name)
+            print(f"  → Embedded complete file ({len(constructs_with_embeddings)} whole file construct)")
+        else:
+            # Extract individual constructs
+            constructs_with_embeddings, imports = parser.parse_file(file_path, repo_path, repo_name)
+            print(f"  → Extracted {len(constructs_with_embeddings)} constructs")
         
         # Store code constructs and embeddings in PostgreSQL
         db.store_constructs(constructs_with_embeddings)
         
         # Log stored constructs
         for construct, _ in constructs_with_embeddings:
-            print(f"Stored {construct.construct_type} '{construct.name}' from {construct.filename}")
+            if whole_file:
+                lines = construct.line_end - construct.line_start + 1
+                print(f"Stored whole file '{construct.name}' ({lines} lines) from {construct.filename}")
+            else:
+                print(f"Stored {construct.construct_type} '{construct.name}' from {construct.filename}")
     
     return 0
 

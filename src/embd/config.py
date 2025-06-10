@@ -23,7 +23,7 @@ DEFAULT_MIN_SIMILARITY = 0.7  # Default minimum similarity score for matches
 DEFAULT_MAX_RESULTS = 10     # Default maximum number of results
 
 # File patterns and languages
-CODE_FILE_PATTERNS = ('.py', '.md', '.tf', '.tfvars')
+CODE_FILE_PATTERNS = ('.py', '.md', '.tf', '.tfvars', '.html', '.htm')
 
 # Language-specific settings
 LANGUAGES = {
@@ -31,7 +31,8 @@ LANGUAGES = {
         'extensions': ['.py'],
         'description_templates': {
             'function_definition': 'Python function that {{purpose}}',
-            'class_definition': 'Python class that {{purpose}}'
+            'class_definition': 'Python class that {{purpose}}',
+            'whole_file': 'Complete Python file that {{purpose}}'
         }
     },
     'terraform': {
@@ -39,7 +40,32 @@ LANGUAGES = {
         'description_templates': {
             'terraform_module': 'Terraform module that {{purpose}}',
             'terraform_resource': 'Terraform resource that {{purpose}}',
-            'terraform_data': 'Terraform data source that {{purpose}}'
+            'terraform_data': 'Terraform data source that {{purpose}}',
+            'whole_file': 'Complete Terraform file that {{purpose}}'
+        }
+    },
+    'markdown': {
+        'extensions': ['.md'],
+        'description_templates': {
+            'markdown_heading': 'Markdown heading that {{purpose}}',
+            'markdown_section': 'Markdown section that {{purpose}}',
+            'markdown_code_block': 'Markdown code block that {{purpose}}',
+            'whole_file': 'Complete Markdown document that {{purpose}}'
+        }
+    },
+    'html': {
+        'extensions': ['.html', '.htm'],
+        'description_templates': {
+            'web_html_document': 'Complete HTML document that {{purpose}}',
+            'web_html_section': 'HTML section that {{purpose}}',
+            'web_html_code_block': 'HTML code block that {{purpose}}',
+            'whole_file': 'Complete HTML document that {{purpose}}'
+        }
+    },
+    'general': {
+        'extensions': ['*'],
+        'description_templates': {
+            'whole_file': 'Complete file that {{purpose}}'
         }
     }
 }

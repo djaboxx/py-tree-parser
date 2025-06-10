@@ -1,6 +1,8 @@
 """Module for parsing code files and extracting embeddings."""
 import os
 import json
+import re
+import urllib.parse
 from typing import Optional, Any, List, Tuple, Dict
 from git import Repo, Git
 import tree_sitter
@@ -281,7 +283,7 @@ def parse_file(filename: str, repo_path: Optional[str] = None, repo_name: Option
     """Parse a file and extract code constructs and imports.
     
     Args:
-        filename: Path to file to parse
+        filename: Path to file to parse or a URL to a web document
         repo_path: Optional git repository path for commit info
         repo_name: Optional repository name to use for constructs. If not provided and repo_path exists,
                   will use the basename of repo_path.
@@ -289,6 +291,19 @@ def parse_file(filename: str, repo_path: Optional[str] = None, repo_name: Option
     Returns:
         Tuple of (list of (CodeConstruct, embedding) tuples, list of Imports)
     """
+    # Check if filename is a URL
+    if filename.startswith(('http://', 'https://')):
+        try:
+            from . import web_parser
+            constructs_with_embeddings = web_parser.process_web_document(filename)
+            return constructs_with_embeddings, []  # Web documents don't have imports
+        except ImportError:
+            print("Warning: web_parser module not available. Cannot process URLs.")
+        except Exception as e:
+            print(f"Error processing web document {filename}: {str(e)}")
+            return [], []
+    
+    # Regular file processing
     try:
         with open(filename, 'rb') as f:
             code_bytes = f.read()
@@ -386,10 +401,113 @@ def parse_file(filename: str, repo_path: Optional[str] = None, repo_name: Option
                 construct.repository = repo_name or ''
                 constructs_with_embeddings.append((construct, embedding))
                 
+        elif filename.endswith(('.html', '.htm')):
+            # Handle HTML files using BeautifulSoup
+            try:
+                from . import web_parser
+                html_content = code_bytes.decode('utf-8', errors='replace')
+                constructs_and_embeddings = web_parser.parse_html_document(html_content, filename)
+                for construct, embedding in constructs_and_embeddings:
+                    # Fill in repository info
+                    construct.git_commit = git_commit
+                    construct.repository = repo_name or ''
+                    constructs_with_embeddings.append((construct, embedding))
+            except ImportError:
+                print(f"Warning: web_parser module not available. Cannot process HTML file {filename}")
+            except Exception as e:
+                print(f"Error processing HTML file {filename}: {str(e)}")
+                
         return constructs_with_embeddings, imports
         
     except Exception as e:
         print(f"Error parsing {filename}: {str(e)}")
+        return [], []
+
+def parse_file_as_whole(filename: str, repo_path: Optional[str] = None, repo_name: Optional[str] = None) -> ParseResult:
+    """Parse a file and embed it as a complete document (within token limits).
+    
+    This function creates a single embedding for the entire file content, respecting
+    the EMBEDDING_TOKEN_LIMIT. If the file exceeds the limit, it will be truncated
+    with a warning.
+    
+    Args:
+        filename: Path to file to parse
+        repo_path: Optional git repository path for commit info  
+        repo_name: Optional repository name to use for constructs
+        
+    Returns:
+        Tuple of (list of (CodeConstruct, embedding) tuples, list of Imports)
+    """
+    try:
+        with open(filename, 'rb') as f:
+            code_bytes = f.read()
+            
+        git_commit = ''
+        # Use provided repo_name or extract from path if available
+        if repo_name is None and repo_path:
+            repo_name = os.path.basename(repo_path)
+            
+        if repo_path:
+            try:
+                repo = Repo(repo_path)
+                git_commit = repo.head.commit.hexsha
+            except Exception as e:
+                print(f"Warning: Could not get git info: {e}")
+        
+        # Convert to text
+        try:
+            file_content = code_bytes.decode('utf-8')
+        except UnicodeDecodeError:
+            print(f"Warning: Could not decode {filename} as UTF-8, skipping")
+            return [], []
+        
+        # Generate file-level description
+        file_extension = pathlib.Path(filename).suffix
+        language = {
+            '.py': 'Python',
+            '.md': 'Markdown', 
+            '.tf': 'Terraform',
+            '.tfvars': 'Terraform variables',
+            '.js': 'JavaScript',
+            '.ts': 'TypeScript',
+            '.json': 'JSON',
+            '.yaml': 'YAML',
+            '.yml': 'YAML'
+        }.get(file_extension, 'unknown')
+        
+        file_basename = os.path.basename(filename)
+        description = f"Complete {language} file: {file_basename}"
+        
+        # Generate embedding for the whole file
+        embedding = get_embedding(file_content, description)
+        
+        # Create a single CodeConstruct for the whole file
+        construct = models.CodeConstruct(
+            filename=filename,
+            repository=repo_name or '',
+            git_commit=git_commit,
+            code=file_content,
+            name=file_basename,
+            construct_type='whole_file',
+            description=description,
+            embedding=embedding,
+            line_start=1,
+            line_end=len(file_content.split('\n'))
+        )
+        
+        # Extract imports if it's a Python file
+        imports = []
+        if filename.endswith('.py'):
+            parser = get_parser('python')
+            language = get_language('python')
+            parser.set_language(language)
+            tree = parser.parse(code_bytes)
+            imports = extract_imports(tree.root_node, code_bytes, filename, repo_name or '')
+        
+        return [(construct, embedding)], imports
+        
+    except Exception as e:
+        print(f"Error parsing whole file {filename}: {str(e)}")
         return [], []
 
 def parse_terraform_block(node, code_bytes) -> Optional[Dict[str, Any]]:
