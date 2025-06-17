@@ -31,6 +31,7 @@ setup(
             "embd-search=embd.search_cli:main",
             "embd-reinit-db=embd.reinit_db:main",
             "embd-web=embd.fetch_web:main",
+            "embd-web-enhanced=embd.fetch_web_enhanced:main",
         ],
     },
     author="David Arnold",

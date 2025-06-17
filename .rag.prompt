@@ -1,0 +1,20 @@
+# Terraform Repository Pattern Analyzer
+
+This project aims to build a system for analyzing Terraform code patterns across multiple repositories 
+without using LLM embeddings (due to security constraints). The tool leverages tree-sitter for HCL to 
+parse Terraform files into abstract syntax trees, enabling structured analysis of code patterns.
+
+## Core Functionality
+- Parse Terraform repositories using tree-sitter-hcl to extract resource structures, modules, and 
+  configurations
+- Index parsed structures in an AWS DynamoDB backend for efficient retrieval
+- Implement a query system to find similar patterns, common structures, and implementation variations
+- Support change analysis to help implement consistent changes across repositories
+- Provide insights into naming conventions, resource usage patterns, and architectural approaches
+
+## Technical Approach
+The system works by traversing Terraform repositories, building AST representations of the code, 
+and storing these in structured form. This enables "RAG-like" functionality (retrieval of relevant 
+code patterns) without requiring embeddings or LLMs, making it suitable for high-security 
+environments. The DynamoDB backend offers scalability and flexibility for storing the parsed 
+structures in a way that supports efficient pattern matching and retrieval.
