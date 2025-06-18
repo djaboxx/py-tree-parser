@@ -28,10 +28,10 @@ setup(
     entry_points={
         "console_scripts": [
             "embd=embd.main:main",
-            "embd-search=embd.search_cli:main",
+            "embd-search=embd.cli.search:main",
             "embd-reinit-db=embd.reinit_db:main",
-            "embd-web=embd.fetch_web:main",
-            "embd-web-enhanced=embd.fetch_web_enhanced:main",
+            "embd-web=embd.cli.web:main",
+            "embd-repo=embd.cli.repo:main",
         ],
     },
     author="David Arnold",

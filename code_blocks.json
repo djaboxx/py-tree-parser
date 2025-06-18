@@ -1,0 +1,72 @@
+[
+  {
+    "id": "web:https://ai.pydantic.dev/agents/:Code block (unknown) 1:web_html_code_block",
+    "repository": "web",
+    "filename": "https://ai.pydantic.dev/agents/",
+    "type": "web_html_code_block",
+    "name": "Code block (unknown) 1",
+    "line_start": 1,
+    "line_end": 1,
+    "code": "frompydantic_aiimportAgent,RunContextroulette_agent=Agent(# (1)!'openai:gpt-4o',deps_type=int,output_type=bool,system_prompt=('Use the `roulette_wheel` function to see if the ''customer has won based on the number they provide.'),)@roulette_agent.toolasyncdefroulette_wheel(ctx:RunContext[int],square:int)->str:# (2)!\"\"\"check if the square is a winner\"\"\"return'winner'ifsquare==ctx.depselse'loser'# Run the agentsuccess_number=18# (3)!result=roulette_agent.run_sync('Put my money on square eighteen',deps=success_number)print(result.output)# (4)!#> Trueresult=roulette_agent.run_sync('I bet five is the winner',deps=success_number)print(result.output)#> False",
+    "description": "HTML code block in unknown",
+    "git_commit": "",
+    "created_at": "2025-06-17 03:50:54.404127+00:00",
+    "updated_at": null
+  },
+  {
+    "id": "web:https://ai.pydantic.dev/agents/:Code block (unknown) 2:web_html_code_block",
+    "repository": "web",
+    "filename": "https://ai.pydantic.dev/agents/",
+    "type": "web_html_code_block",
+    "name": "Code block (unknown) 2",
+    "line_start": 1,
+    "line_end": 1,
+    "code": "frompydantic_aiimportAgentagent=Agent('openai:gpt-4o')result_sync=agent.run_sync('What is the capital of Italy?')print(result_sync.output)#> Romeasyncdefmain():result=awaitagent.run('What is the capital of France?')print(result.output)#> Parisasyncwithagent.run_stream('What is the capital of the UK?')asresponse:print(awaitresponse.get_output())#> London",
+    "description": "HTML code block in unknown",
+    "git_commit": "",
+    "created_at": "2025-06-17 03:50:54.404127+00:00",
+    "updated_at": null
+  },
+  {
+    "id": "web:https://ai.pydantic.dev/agents/:Code block (unknown) 3:web_html_code_block",
+    "repository": "web",
+    "filename": "https://ai.pydantic.dev/agents/",
+    "type": "web_html_code_block",
+    "name": "Code block (unknown) 3",
+    "line_start": 1,
+    "line_end": 1,
+    "code": "frompydantic_aiimportAgentagent=Agent('openai:gpt-4o')asyncdefmain():nodes=[]# Begin an AgentRun, which is an async-iterable over the nodes of the agent's graphasyncwithagent.iter('What is the capital of France?')asagent_run:asyncfornodeinagent_run:# Each node represents a step in the agent's executionnodes.append(node)print(nodes)\"\"\"[UserPromptNode(user_prompt='What is the capital of France?',instructions=None,instructions_functions=[],system_prompts=(),system_prompt_functions=[],system_prompt_dynamic_functions={},),ModelRequestNode(request=ModelRequest(parts=[UserPromptPart(content='What is the capital of France?',timestamp=datetime.datetime(...),)])),CallToolsNode(model_response=ModelResponse(parts=[TextPart(content='Paris')],usage=Usage(requests=1, request_tokens=56, response_tokens=1, total_tokens=57),model_name='gpt-4o',timestamp=datetime.datetime(...),)),End(data=FinalResult(output='Paris')),]\"\"\"print(agent_run.result.output)#> Paris",
+    "description": "HTML code block in unknown",
+    "git_commit": "",
+    "created_at": "2025-06-17 03:50:54.404127+00:00",
+    "updated_at": null
+  },
+  {
+    "id": "web:https://ai.pydantic.dev/agents/:Code block (unknown) 4:web_html_code_block",
+    "repository": "web",
+    "filename": "https://ai.pydantic.dev/agents/",
+    "type": "web_html_code_block",
+    "name": "Code block (unknown) 4",
+    "line_start": 1,
+    "line_end": 1,
+    "code": "frompydantic_aiimportAgentfrompydantic_graphimportEndagent=Agent('openai:gpt-4o')asyncdefmain():asyncwithagent.iter('What is the capital of France?')asagent_run:node=agent_run.next_node# (1)!all_nodes=[node]# Drive the iteration manually:whilenotisinstance(node,End):# (2)!node=awaitagent_run.next(node)# (3)!all_nodes.append(node)# (4)!print(all_nodes)\"\"\"[UserPromptNode(user_prompt='What is the capital of France?',instructions=None,instructions_functions=[],system_prompts=(),system_prompt_functions=[],system_prompt_dynamic_functions={},),ModelRequestNode(request=ModelRequest(parts=[UserPromptPart(content='What is the capital of France?',timestamp=datetime.datetime(...),)])),CallToolsNode(model_response=ModelResponse(parts=[TextPart(content='Paris')],usage=Usage(requests=1,request_tokens=56,response_tokens=1,total_tokens=57,),model_name='gpt-4o',timestamp=datetime.datetime(...),)),End(data=FinalResult(output='Paris')),]\"\"\"",
+    "description": "HTML code block in unknown",
+    "git_commit": "",
+    "created_at": "2025-06-17 03:50:54.404127+00:00",
+    "updated_at": null
+  },
+  {
+    "id": "web:https://ai.pydantic.dev/agents/:Code block (unknown) 5:web_html_code_block",
+    "repository": "web",
+    "filename": "https://ai.pydantic.dev/agents/",
+    "type": "web_html_code_block",
+    "name": "Code block (unknown) 5",
+    "line_start": 1,
+    "line_end": 1,
+    "code": "importasynciofromdataclassesimportdataclassfromdatetimeimportdatefrompydantic_aiimportAgentfrompydantic_ai.messagesimport(FinalResultEvent,FunctionToolCallEvent,FunctionToolResultEvent,PartDeltaEvent,PartStartEvent,TextPartDelta,ToolCallPartDelta,)frompydantic_ai.toolsimportRunContext@dataclassclassWeatherService:asyncdefget_forecast(self,location:str,forecast_date:date)->str:# In real code: call weather API, DB queries, etc.returnf'The forecast in{location}on{forecast_date}is 24\u00c2\u00b0C and sunny.'asyncdefget_historic_weather(self,location:str,forecast_date:date)->str:# In real code: call a historical weather API or DBreturn(f'The weather in{location}on{forecast_date}was 18\u00c2\u00b0C and partly cloudy.')weather_agent=Agent[WeatherService,str]('openai:gpt-4o',deps_type=WeatherService,output_type=str,# We'll produce a final answer as plain textsystem_prompt='Providing a weather forecast at the locations the user provides.',)@weather_agent.toolasyncdefweather_forecast(ctx:RunContext[WeatherService],location:str,forecast_date:date,)->str:ifforecast_date>=date.today():returnawaitctx.deps.get_forecast(location,forecast_date)else:returnawaitctx.deps.get_historic_weather(location,forecast_date)output_messages:list[str]=[]asyncdefmain():user_prompt='What will the weather be like in Paris on Tuesday?'# Begin a node-by-node, streaming iterationasyncwithweather_agent.iter(user_prompt,deps=WeatherService())asrun:asyncfornodeinrun:ifAgent.is_user_prompt_node(node):# A user prompt node => The user has provided inputoutput_messages.append(f'=== UserPromptNode:{node.user_prompt}===')elifAgent.is_model_request_node(node):# A model request node => We can stream tokens from the model's requestoutput_messages.append('=== ModelRequestNode: streaming partial request tokens ===')asyncwithnode.stream(run.ctx)asrequest_stream:asyncforeventinrequest_stream:ifisinstance(event,PartStartEvent):output_messages.append(f'[Request] Starting part{event.index}:{event.part!r}')elifisinstance(event,PartDeltaEvent):ifisinstance(event.delta,TextPartDelta):output_messages.append(f'[Request] Part{event.index}text delta:{event.delta.content_delta!r}')elifisinstance(event.delta,ToolCallPartDelta):output_messages.append(f'[Request] Part{event.index}args_delta={event.delta.args_delta}')elifisinstance(event,FinalResultEvent):output_messages.append(f'[Result] The model produced a final output (tool_name={event.tool_name})')elifAgent.is_call_tools_node(node):# A handle-response node => The model returned some data, potentially calls a tooloutput_messages.append('=== CallToolsNode: streaming partial response & tool usage ===')asyncwithnode.stream(run.ctx)ashandle_stream:asyncforeventinhandle_stream:ifisinstance(event,FunctionToolCallEvent):output_messages.append(f'[Tools] The LLM calls tool={event.part.tool_name!r}with args={event.part.args}(tool_call_id={event.part.tool_call_id!r})')elifisinstance(event,FunctionToolResultEvent):output_messages.append(f'[Tools] Tool call{event.tool_call_id!r}returned =>{event.result.content}')elifAgent.is_end_node(node):assertrun.result.output==node.data.output# Once an End node is reached, the agent run is completeoutput_messages.append(f'=== Final Agent Output:{run.result.output}===')if__name__=='__main__':asyncio.run(main())print(output_messages)\"\"\"['=== UserPromptNode: What will the weather be like in Paris on Tuesday? ===','=== ModelRequestNode: streaming partial request tokens ===',\"[Request] Starting part 0: ToolCallPart(tool_name='weather_forecast', tool_call_id='0001')\",'[Request] Part 0 args_delta={\"location\":\"Pa','[Request] Part 0 args_delta=ris\",\"forecast_','[Request] Part 0 args_delta=date\":\"2030-01-','[Request] Part 0 args_delta=01\"}','=== CallToolsNode: streaming partial response & tool usage ===','[Tools] The LLM calls tool=\\'weather_forecast\\' with args={\"location\":\"Paris\",\"forecast_date\":\"2030-01-01\"} (tool_call_id=\\'0001\\')',\"[Tools] Tool call '0001' returned => The forecast in Paris on 2030-01-01 is 24\u00c2\u00b0C and sunny.\",'=== ModelRequestNode: streaming partial request tokens ===',\"[Request] Starting part 0: TextPart(content='It will be ')\",'[Result] The model produced a final output (tool_name=None)',\"[Request] Part 0 text delta: 'warm and sunny '\",\"[Request] Part 0 text delta: 'in Paris on '\",\"[Request] Part 0 text delta: 'Tuesday.'\",'=== CallToolsNode: streaming partial response & tool usage ===','=== Final Agent Output: It will be warm and sunny in Paris on Tuesday. ===',]\"\"\"",
+    "description": "HTML code block in unknown",
+    "git_commit": "",
+    "created_at": "2025-06-17 03:50:54.404127+00:00",
+    "updated_at": null
+  }
+]

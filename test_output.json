@@ -1,0 +1,18 @@
+[
+  {
+    "type": "web_html_document",
+    "name": "Example Domain",
+    "filename": "https://example.com",
+    "content_length": 191,
+    "content_preview": "Example Domain\nThis domain is for use in illustrative examples in documents. You may use this\n    do...",
+    "description": "Web document: Example Domain"
+  },
+  {
+    "type": "web_html_section",
+    "name": "Example Domain",
+    "filename": "https://example.com",
+    "content_length": 195,
+    "content_preview": "Example Domain\n\n\nThis domain is for use in illustrative examples in documents. You may use this\n    ...",
+    "description": "Web document section: Example Domain"
+  }
+]

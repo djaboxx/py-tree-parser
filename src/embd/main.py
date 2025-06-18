@@ -2,9 +2,11 @@
 import os
 from typing import Optional
 import click
+from rich.console import Console
 from git import Repo, exc as git_exc
-from . import parser
-from . import db
+from .database_manager import DatabaseManager
+from .processors.local import LocalFileProcessor
+from .embedding import EmbeddingGenerator
 
 @click.command()
 @click.argument('repo_name', type=str, required=False)
@@ -19,52 +21,57 @@ def main(repo_name: Optional[str] = None, path: Optional[str] = None, whole_file
         path: Path to repository (defaults to current directory)
         whole_file: If True, embed complete files instead of individual constructs
     """
-    # Initialize database tables and indexes
-    db.init_indexes()
+    console = Console()
     
-    # Get the repository path (current directory if not specified)
-    repo_path = os.path.abspath(path or os.getcwd())
-    
-    # Default repo_name to basename of repo_path if not specified
-    if not repo_name:
-        repo_name = os.path.basename(repo_path)
-    
+    console = Console()
     try:
-        repo = Repo(repo_path)
-    except git_exc.InvalidGitRepositoryError:
-        print(f"\nError: Not a git repository: {repo_path}")
-        print("\nPlease specify a valid git repository path with --path or run from within a git repository.")
-        print("You can initialize a new git repository with 'git init' if needed.\n")
-        return 1
-    
-    # Get all tracked Python and Markdown files
-    files = parser.get_git_tracked_files(repo_path)
-    
-    # Process each file
-    for file_path in files:
-        print(f"Processing {file_path}...")
+        # Initialize components
+        console.print("[bold cyan]Initializing...[/bold cyan]")
+        db_manager = DatabaseManager()
+        db_manager.init_db()
+        embedding_gen = EmbeddingGenerator()
         
-        if whole_file:
-            # Embed the complete file
-            constructs_with_embeddings, imports = parser.parse_file_as_whole(file_path, repo_path, repo_name)
-            print(f"  → Embedded complete file ({len(constructs_with_embeddings)} whole file construct)")
-        else:
-            # Extract individual constructs
-            constructs_with_embeddings, imports = parser.parse_file(file_path, repo_path, repo_name)
-            print(f"  → Extracted {len(constructs_with_embeddings)} constructs")
-        
-        # Store code constructs and embeddings in PostgreSQL
-        db.store_constructs(constructs_with_embeddings)
-        
-        # Log stored constructs
-        for construct, _ in constructs_with_embeddings:
-            if whole_file:
-                lines = construct.line_end - construct.line_start + 1
-                print(f"Stored whole file '{construct.name}' ({lines} lines) from {construct.filename}")
-            else:
-                print(f"Stored {construct.construct_type} '{construct.name}' from {construct.filename}")
-    
-    return 0
+        # Determine repository path and name
+        repo_path = os.path.abspath(path if path else os.getcwd())
+        if not repo_name:
+            repo_name = os.path.basename(repo_path)
 
-if __name__ == "__main__":
+        # Validate repository
+        try:
+            repo = Repo(repo_path)
+            if repo.bare:
+                raise click.UsageError("Cannot process bare repository")
+        except git_exc.InvalidGitRepositoryError:
+            raise click.UsageError("Not a git repository")
+
+        console.print(f"[bold green]Processing repository:[/bold green] {repo_name}")
+        console.print(f"[bold green]Path:[/bold green] {repo_path}")
+
+        # Initialize processor
+        processor = LocalFileProcessor(
+            repo_path=repo_path,
+            embedding_generator=embedding_gen
+        )
+        
+        # Process repository
+        constructs_with_embeddings, imports = processor.process()
+        
+        # Add repository info to constructs
+        for construct, _ in constructs_with_embeddings:
+            construct.repository = repo_name
+        
+        # Store results
+        if constructs_with_embeddings:
+            console.print("[bold cyan]Storing results in database...[/bold cyan]")
+            db_manager.store_constructs(constructs_with_embeddings)
+            
+        console.print("\n[bold green]Processing completed successfully![/bold green]")
+            
+    except click.UsageError:
+        raise
+    except Exception as e:
+        console.print(f"\n[bold red]Error processing repository:[/bold red] {str(e)}")
+        raise click.Abort()
+
+if __name__ == '__main__':
     main()

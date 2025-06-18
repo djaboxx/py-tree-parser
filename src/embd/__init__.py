@@ -1,16 +1,20 @@
-"""
-embd - A tool for embedding code constructs with Gemini and storing them in MongoDB
-"""
+"""Embedding generation and semantic code search system."""
 
+from .embedding import EmbeddingGenerator
+from .database_manager import DatabaseManager
+from .processors.web import WebProcessor
+from .processors.local import LocalFileProcessor
 from .models import CodeConstruct, Import
-from .parser import parse_file, parse_file_as_whole, get_git_tracked_files
+from . import search
 
-# Import web processing functionality if dependencies are available
-try:
-    from .web_parser import process_web_document, parse_html_document, parse_web_markdown
-    __all__ = ["CodeConstruct", "Import", "parse_file", "parse_file_as_whole", "get_git_tracked_files", 
-              "process_web_document", "parse_html_document", "parse_web_markdown"]
-except ImportError:
-    __all__ = ["CodeConstruct", "Import", "parse_file", "parse_file_as_whole", "get_git_tracked_files"]
+__all__ = [
+    'EmbeddingGenerator',
+    'DatabaseManager',
+    'WebProcessor',
+    'LocalFileProcessor',
+    'CodeConstruct',
+    'Import',
+    'search'
+]
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"

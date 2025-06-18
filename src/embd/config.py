@@ -13,9 +13,9 @@ POSTGRES_URI = os.getenv(
 
 # Gemini settings
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-EMBEDDING_MODEL = "text-embedding-004"  # Latest embedding model
+EMBEDDING_MODEL = "gemini-embedding-exp-03-07"  # Latest Gemini embedding model
 DESCRIBING_MODEL = "gemini-2.0-flash"  # For descriptions
-EMBEDDING_DIMENSION = 768  # Dimension for model
+EMBEDDING_DIMENSION = 768  # Dimensions for embedding vector
 EMBEDDING_TOKEN_LIMIT = 8192  # Max tokens for embedding
 
 # Similarity thresholds
