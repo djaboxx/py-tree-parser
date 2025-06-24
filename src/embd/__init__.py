@@ -2,10 +2,13 @@
 
 from .embedding import EmbeddingGenerator
 from .database_manager import DatabaseManager
-from .processors.web import WebProcessor
-from .processors.local import LocalFileProcessor
+from .processors import get_processor, list_processors, register_processor
+from .processors.base import BaseProcessor
 from .models import CodeConstruct, Import
-from . import search
+
+# For backward compatibility
+WebProcessor = get_processor('web')
+LocalFileProcessor = get_processor('local')
 
 __all__ = [
     'EmbeddingGenerator',
@@ -14,7 +17,10 @@ __all__ = [
     'LocalFileProcessor',
     'CodeConstruct',
     'Import',
-    'search'
+    'BaseProcessor',
+    'get_processor',
+    'list_processors',
+    'register_processor'
 ]
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"

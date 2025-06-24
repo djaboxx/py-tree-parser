@@ -15,7 +15,7 @@ POSTGRES_URI = os.getenv(
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 EMBEDDING_MODEL = "gemini-embedding-exp-03-07"  # Latest Gemini embedding model
 DESCRIBING_MODEL = "gemini-2.0-flash"  # For descriptions
-EMBEDDING_DIMENSION = 768  # Dimensions for embedding vector
+EMBEDDING_DIMENSION = 3072  # Dimensions for Gemini embedding vector
 EMBEDDING_TOKEN_LIMIT = 8192  # Max tokens for embedding
 
 # Similarity thresholds
@@ -24,6 +24,22 @@ DEFAULT_MAX_RESULTS = 10     # Default maximum number of results
 
 # File patterns and languages
 CODE_FILE_PATTERNS = ('.py', '.md', '.tf', '.tfvars', '.html', '.htm')
+
+# Default patterns for file matching
+DEFAULT_INCLUDE_PATTERNS = ['**/*.py', '**/*.md', '**/*.tf', '**/*.tfvars']
+DEFAULT_EXCLUDE_PATTERNS = [
+    '**/.git/**',
+    '**/venv/**',
+    '**/node_modules/**',
+    '**/__pycache__/**',
+    '**/*.pyc',
+    '**/*.pyo',
+    '**/*.pyd',
+    '**/.env',
+    '**/.venv',
+    '**/dist/**',
+    '**/build/**',
+]
 
 # Language-specific settings
 LANGUAGES = {

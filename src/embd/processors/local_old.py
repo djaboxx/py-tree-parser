@@ -12,12 +12,15 @@ from ..embedding import EmbeddingGenerator
 from .. import models
 from .. import config
 from .base import BaseProcessor
+from pathlib import Path
 from fnmatch import fnmatch
 
 logger = logging.getLogger(__name__)
 
 class LocalFileProcessor(BaseProcessor):
-    """Processes local files that are tracked by git."""
+    ""def _capture_matches(self, query_text: str, node: Any, language: Any) -> List[Tuple[str, Any]]:
+        """Helper to handle tree-sitter query captures safely."""
+        logger.debug(f"Running tree-sitter query:\n{query_text}")rocesses local files that are tracked by git."""
     
     def __init__(self, 
                 repo_path: str, 
@@ -143,8 +146,6 @@ class LocalFileProcessor(BaseProcessor):
                 
         logger.info(f"Processed {len(self._processed_files)} files total")
         logger.info(f"Found {len(constructs_with_embeddings)} total constructs")
-        for construct, embedding in constructs_with_embeddings:
-            logger.info(f"  Construct: {construct.name} ({construct.construct_type}) lines {construct.line_start}-{construct.line_end}")
         return constructs_with_embeddings, imports
         
     def process_file(self, file_path: str) -> Tuple[List[Tuple[models.CodeConstruct, List[float]]], List[models.Import]]:
@@ -265,7 +266,6 @@ class LocalFileProcessor(BaseProcessor):
                 '.rs': 'rust',
             }
             lang_name = language_map.get(ext)
-            logger.info(f"DETECTED LANGUAGE: {lang_name} for extension {ext}")
             if not lang_name:
                 logger.warning(f"Unsupported file type: {ext}, processing as plain text")
                 return self._process_text_file(file_path, content, lines)
@@ -273,47 +273,35 @@ class LocalFileProcessor(BaseProcessor):
             constructs_with_embeddings = []
             imports = []
             
-            logger.info("ABOUT TO START TREE-SITTER PROCESSING")
-            
             # Initialize tree-sitter parser
             logger.info(f"Processing {lang_name} file: {file_path}")
-            
-            language = get_language(lang_name)
-            parser = Parser()
-            parser.set_language(language)
-            
-            tree = parser.parse(content.encode())
-            if not tree or not tree.root_node:
-                raise ValueError("Failed to parse file")
-            logger.info("Successfully parsed file with tree-sitter")
-            
-            # Debug the tree structure
-            logger.info(f"AST root type: {tree.root_node.type}")
-            logger.info(f"Number of top-level nodes: {len(tree.root_node.children)}")
-            for child in tree.root_node.children:
-                logger.info(f"Top-level node: {child.type}")
-                if child.type == 'class_definition':
-                    name_node = child.child_by_field_name('name')
-                    if name_node:
-                        name = content[name_node.start_byte:name_node.end_byte]
-                        logger.info(f"Found class: {name}")
-                elif child.type == 'function_definition':
-                    name_node = child.child_by_field_name('name')
-                    if name_node:
-                        name = content[name_node.start_byte:name_node.end_byte]
-                        logger.info(f"Found function: {name}")
+            try:
+                language = get_language(lang_name)
+                parser = Parser()
+                parser.set_language(language)
+                
+                tree = parser.parse(content.encode())
+                if not tree or not tree.root_node:
+                    raise ValueError("Failed to parse file")
+                logger.info("Successfully parsed file with tree-sitter")
+                
+                # Debug the tree structure
+                logger.debug(f"AST root type: {tree.root_node.type}")
+                logger.debug(f"Number of top-level nodes: {len(tree.root_node.children)}")
+                for child in tree.root_node.children:
+                    logger.debug(f"Top-level node: {child.type}")
+                    
+            except Exception as e:
+                logger.error(f"Tree-sitter error for {file_path}: {str(e)}")
+                return self._process_text_file(file_path, content, lines)
             
             # First, process the whole file as a reference construct
             description = f"Complete {lang_name} file: {os.path.basename(file_path)}"
-            try:
-                file_embedding = self.embedding_generator.generate(
-                    content, 
-                    description,
-                    filename=file_path
-                ) if self.embedding_generator else []
-            except Exception as e:
-                logger.error(f"Failed to generate embedding for file {file_path}: {e}")
-                file_embedding = []
+            file_embedding = self.embedding_generator.generate(
+                content, 
+                description,
+                filename=file_path
+            ) if self.embedding_generator else []
             
             file_construct = models.CodeConstruct(
                 name=os.path.basename(file_path),
@@ -331,7 +319,6 @@ class LocalFileProcessor(BaseProcessor):
             
             # Process imports for Python
             if lang_name == 'python':
-                logger.info("PROCESSING PYTHON IMPORTS")
                 # Find import statements
                 for node in tree.root_node.children:
                     if node.type in ['import_statement', 'import_from_statement']:
@@ -363,22 +350,15 @@ class LocalFileProcessor(BaseProcessor):
             
             # Process classes and functions
             if lang_name == 'python':
-                logger.info("PROCESSING PYTHON CLASSES AND FUNCTIONS")
-                logger.debug("Starting to process Python constructs")
                 # Process all nodes recursively
                 def process_nodes(nodes, parent_class=None):
-                    logger.debug(f"Processing {len(nodes)} nodes")
-                    for i, node in enumerate(nodes):
-                        logger.debug(f"Processing node {i}: {node.type}")
+                    for node in nodes:
                         if node.type == 'class_definition':
-                            logger.debug("Found class definition")
                             name_node = node.child_by_field_name('name')
                             if not name_node:
-                                logger.debug("Class has no name node, skipping")
                                 continue
                                 
                             class_name = content[name_node.start_byte:name_node.end_byte]
-                            logger.debug(f"Processing class: {class_name}")
                             class_code = content[node.start_byte:node.end_byte]
                             line_start = node.start_point[0] + 1
                             line_end = node.end_point[0] + 1
@@ -386,16 +366,11 @@ class LocalFileProcessor(BaseProcessor):
                             description = f"Class {class_name} in {os.path.basename(file_path)}"
                             
                             # Generate embedding for the class
-                            logger.debug(f"Generating embedding for class {class_name}")
-                            try:
-                                embedding = self.embedding_generator.generate(
-                                    class_code,
-                                    description,
-                                    filename=file_path
-                                ) if self.embedding_generator else []
-                            except Exception as e:
-                                logger.error(f"Failed to generate embedding for class {class_name}: {e}")
-                                embedding = []
+                            embedding = self.embedding_generator.generate(
+                                class_code,
+                                description,
+                                filename=file_path
+                            ) if self.embedding_generator else []
                             
                             construct = models.CodeConstruct(
                                 name=class_name,
@@ -409,7 +384,6 @@ class LocalFileProcessor(BaseProcessor):
                                 line_start=line_start,
                                 line_end=line_end
                             )
-                            logger.debug(f"Adding class construct: {class_name}")
                             constructs_with_embeddings.append((construct, embedding))
                             
                             # Process methods within the class
@@ -421,7 +395,7 @@ class LocalFileProcessor(BaseProcessor):
                                         if not method_name_node:
                                             continue
                                             
-                                        method_name = f"{class_name}.{content[method_name_node.start_byte:method_name_node.end_byte]}"
+                                        method_name = f"{class_name}.{content[method_name_node.start_byte:method_nameNode.end_byte]}"
                                         method_code = content[child.start_byte:child.end_byte]
                                         method_line_start = child.start_point[0] + 1
                                         method_line_end = child.end_point[0] + 1
@@ -429,15 +403,11 @@ class LocalFileProcessor(BaseProcessor):
                                         description = f"Method {method_name} in {os.path.basename(file_path)}"
                                         
                                         # Generate embedding for the method
-                                        try:
-                                            embedding = self.embedding_generator.generate(
-                                                method_code,
-                                                description,
-                                                filename=file_path
-                                            ) if self.embedding_generator else []
-                                        except Exception as e:
-                                            logger.error(f"Failed to generate embedding for method {method_name}: {e}")
-                                            embedding = []
+                                        embedding = self.embedding_generator.generate(
+                                            method_code,
+                                            description,
+                                            filename=file_path
+                                        ) if self.embedding_generator else []
                                         
                                         construct = models.CodeConstruct(
                                             name=method_name,
@@ -467,15 +437,11 @@ class LocalFileProcessor(BaseProcessor):
                             description = f"Function {func_name} in {os.path.basename(file_path)}"
                             
                             # Generate embedding for the function
-                            try:
-                                embedding = self.embedding_generator.generate(
-                                    func_code,
-                                    description,
-                                    filename=file_path
-                                ) if self.embedding_generator else []
-                            except Exception as e:
-                                logger.error(f"Failed to generate embedding for function {func_name}: {e}")
-                                embedding = []
+                            embedding = self.embedding_generator.generate(
+                                func_code,
+                                description,
+                                filename=file_path
+                            ) if self.embedding_generator else []
                             
                             construct = models.CodeConstruct(
                                 name=func_name,
@@ -492,37 +458,15 @@ class LocalFileProcessor(BaseProcessor):
                             constructs_with_embeddings.append((construct, embedding))
                 
                 # Process all top-level nodes
-                logger.debug("Starting to process top-level nodes")
                 process_nodes(tree.root_node.children)
-                logger.debug(f"Finished processing. Total constructs: {len(constructs_with_embeddings)}")
             
             return constructs_with_embeddings, imports
                 
         except Exception as e:
             logger.error(f"Error processing code file {file_path}: {e}")
             logger.exception(e)
-            # Return at least the file construct even if tree-sitter parsing fails
-            description = f"Text file: {os.path.basename(file_path)}"
-            embedding = self.embedding_generator.generate(
-                content,
-                description,
-                filename=file_path
-            ) if self.embedding_generator else []
-            
-            construct = models.CodeConstruct(
-                name=os.path.basename(file_path),
-                construct_type="text_file",
-                filename=file_path,
-                code=content,
-                description=description,
-                repository="",  # Will be set by main.py
-                git_commit=self.current_commit,
-                embedding=embedding,
-                line_start=1,
-                line_end=len(lines)
-            )
-            return [(construct, embedding)], []
-            
+            return [], []
+        
     def _process_text_file(self, file_path: str, content: str, lines: List[str]) -> Tuple[List[Tuple[models.CodeConstruct, List[float]]], List[models.Import]]:
         """Process a file as plain text when tree-sitter parsing fails."""
         constructs_with_embeddings = []
@@ -548,3 +492,76 @@ class LocalFileProcessor(BaseProcessor):
         )
         constructs_with_embeddings.append((construct, embedding))
         return constructs_with_embeddings, []
+        
+    def _capture_matches(self, query_text: str, node: Any, language: Any) -> List[Tuple[str, Any]]:
+        """Helper to handle tree-sitter query captures safely.
+        
+        Args:
+            query_text: The query pattern
+            node: The node to query
+            language: The tree-sitter language
+            
+        Returns:
+            List of (capture_name, node) tuples
+        """
+        try:
+            query = language.query(query_text)
+            captures = []
+            for n in query.captures(node):
+                captures.append((n.capture, n.node))
+            return captures
+        except Exception as e:
+            logger.warning(f"Tree-sitter query failed: {e}")
+            return []
+    
+    def _get_node_text(self, node: Any, content: str) -> str:
+        """Get text content for a node."""
+        return content[node.start_byte:node.end_byte]
+    
+    def _get_node_lines(self, node: Any) -> Tuple[int, int]:
+        """Get line numbers for a node."""
+        return (node.start_point[0] + 1, node.end_point[0] + 1)
+    
+    def _get_construct(self, 
+                    node: Any,
+                    content: str,
+                    construct_type: str,
+                    file_path: str,
+                    name: str,
+                    description: str) -> Tuple[models.CodeConstruct, List[float]]:
+        """Create a CodeConstruct with embedding for a node.
+        
+        Args:
+            node: The tree-sitter node
+            content: Source file content
+            construct_type: Type of construct (class, method, function)
+            file_path: Path to source file
+            name: Name of the construct
+            description: Description for the construct
+            
+        Returns:
+            Tuple of (construct, embedding)
+        """
+        code = self._get_node_text(node, content)
+        line_start, line_end = self._get_node_lines(node)
+        
+        embedding = self.embedding_generator.generate(
+            code,
+            description,
+            filename=file_path
+        ) if self.embedding_generator else []
+        
+        construct = models.CodeConstruct(
+            name=name,
+            construct_type=construct_type,
+            filename=file_path,
+            code=code,
+            description=description,
+            repository="",  # Will be set by main.py
+            git_commit=self.current_commit,
+            embedding=embedding,
+            line_start=line_start,
+            line_end=line_end
+        )
+        
+        return construct, embedding

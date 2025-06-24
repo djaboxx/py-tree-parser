@@ -29,9 +29,9 @@ setup(
         "console_scripts": [
             "embd=embd.main:main",
             "embd-search=embd.cli.search:main",
-            "embd-reinit-db=embd.reinit_db:main",
             "embd-web=embd.cli.web:main",
             "embd-repo=embd.cli.repo:main",
+            "embd-reset-db=embd.cli.reset_db:main",
         ],
     },
     author="David Arnold",

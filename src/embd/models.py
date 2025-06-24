@@ -6,7 +6,7 @@ from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.sql.expression import cast
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import select, text
-from .database import Base
+from .database_base import Base
 from pydantic import BaseModel, Field
 
 # =============================================================================
@@ -85,6 +85,9 @@ class Import(BaseModel):
     repository: str = Field(description="Name of the repository")
     module_name: str = Field(description="Name of the imported module")
     import_type: str = Field(description="Type of import (import or from-import)")
+    line_start: int = Field(description="Starting line number in source file")
+    line_end: int = Field(description="Ending line number in source file")
+    git_commit: str = Field(description="Git commit hash of last change")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -108,8 +111,8 @@ class CodeEmbedding(Base):
     name = Column(String)
     description = Column(Text)
     
-    # Vector embedding (768 dimensions for text-embedding-004)
-    embedding = Column(Vector(768))
+    # Vector embedding (3072 dimensions for Gemini embedding model)
+    embedding = Column(Vector(3072))
     
     # Location information
     line_start = Column(Integer, nullable=False)

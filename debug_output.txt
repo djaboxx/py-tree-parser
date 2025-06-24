@@ -1,0 +1,29 @@
+Processing repository: 
+embed
+Path: 
+/Users/darnold/git/embed
+╭─── Embedding Status ────╮
+│ Time Elapsed: 0.7s      │
+│ Total Tokens Processed: │
+│ 971                     │
+│ Successful Embeddings:  │
+│ 1                       │
+│ Failed Embeddings: 0    │
+│                         │
+│ Current File:           │
+│ /Users/darnold/git/embe │
+│ d/src/embd/models.py    │
+│                         │
+│ Current Action:         │
+│ Successfully generated  │
+│ embedding               │
+╰─────────────────────────╯PostgreSQL tables and 
+indexes created 
+successfully
+Saving results to 
+database...
+Saving to Database... 1/1 …
+Results saved successfully!
+
+Processing completed 
+successfully!

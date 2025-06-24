@@ -3,7 +3,50 @@
 import click
 from typing import Optional
 from rich.console import Console
-from .. import WebProcessor, DatabaseManager, EmbeddingGenerator
+from ..database_manager import DatabaseManager
+from .base import ProcessorCLI
+
+class WebCLI(ProcessorCLI):
+    """CLI tool for web document processing."""
+    
+    def __init__(self):
+        """Initialize web processor CLI."""
+        super().__init__('web')
+
+    def process_url(self, url: str, save: bool = False, output: Optional[str] = None) -> None:
+        """Process a web URL.
+        
+        Args:
+            url: URL to process
+            save: Whether to save results to database
+            output: Optional output file for JSON results
+        """
+        try:
+            self.console.print(f"[bold cyan]Processing URL:[/bold cyan] {url}")
+            
+            # Create and run processor
+            processor = self.create_processor(url=url)
+            constructs, _ = processor.process()
+            
+            if not constructs:
+                self.console.print("[yellow]No code constructs found.[/yellow]")
+                return
+                
+            # Save to database if requested
+            if save:
+                db = DatabaseManager()
+                db.init_db()
+                self.save_results(constructs, db)
+                
+            # Export to file if requested
+            if output:
+                self.export_results(constructs, output)
+                
+            self.console.print("\n[bold green]Processing completed successfully![/bold green]")
+                
+        except Exception as e:
+            self.console.print(f"[bold red]Error processing URL: {str(e)}[/bold red]")
+            raise click.Abort()
 
 @click.command()
 @click.argument('url')
@@ -11,55 +54,8 @@ from .. import WebProcessor, DatabaseManager, EmbeddingGenerator
 @click.option('--output', '-o', type=str, help='Output file for JSON results')
 def main(url: str, save: bool, output: Optional[str] = None):
     """Process a web document from URL."""
-    console = Console()
-    
-    try:
-        # Initialize embedding generator
-        console.print("[bold cyan]Initializing...[/bold cyan]")
-        embedding_gen = EmbeddingGenerator()
-        processor = WebProcessor(url, embedding_generator=embedding_gen)
-        
-        # Process the web document
-        console.print(f"[bold cyan]Processing {url}...[/bold cyan]")
-        constructs, _ = processor.process()
-        
-        # Store results if requested
-        if save:
-            console.print("[bold cyan]Saving to database...[/bold cyan]")
-            db = DatabaseManager()
-            db.init_db()  # Ensure database is initialized
-            db.store_constructs(constructs)
-        
-        # Generate output
-        results = []
-        for construct, embedding in constructs:
-            results.append({
-                "type": construct.construct_type,
-                "name": construct.name,
-                "filename": construct.filename,
-                "description": construct.description
-            })
-            
-        # Save or display results
-        if output:
-            console.print(f"[bold cyan]Saving results to {output}...[/bold cyan]")
-            import json
-            with open(output, 'w') as f:
-                json.dump(results, f, indent=2)
-        else:
-            # Print results nicely
-            console.print("\n[bold green]Extracted Code Constructs:[/bold green]")
-            for i, result in enumerate(results, 1):
-                console.print(f"\n[bold cyan]{i}. {result['name']} ({result['type']})[/bold cyan]")
-                console.print(f"[yellow]File:[/yellow] {result['filename']}")
-                if result['description']:
-                    console.print(f"[yellow]Description:[/yellow] {result['description']}")
-        
-        console.print("\n[bold green]Processing completed successfully![/bold green]")
-            
-    except Exception as e:
-        console.print(f"[bold red]Error processing web document: {str(e)}[/bold red]")
-        raise click.Abort()
+    cli = WebCLI()
+    cli.process_url(url, save, output)
 
 if __name__ == '__main__':
     main()
